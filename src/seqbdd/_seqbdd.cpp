@@ -14,52 +14,46 @@ namespace py = boost::python;
 
 typedef struct _Node {
     char label;
-    struct _Node* branch1;
-    struct _Node* branch0;
+    const struct _Node* branch1;
+    const struct _Node* branch0;
 
-    _Node(char l, struct _Node* b1, struct _Node* b0) {
-        label = l;
-        branch1 = b1;
-        branch0 = b0;
-    }
+    _Node(char l, const struct _Node* b1, const struct _Node* b0)
+        : label(l), branch1(b1), branch0(b0) {}
 } Node;
 
-static Node TERM0('0', NULL, NULL);
-static Node TERM1('1', NULL, NULL);
+static const Node TERM0('0', NULL, NULL);
+static const Node TERM1('1', NULL, NULL);
 
 class nodehash {
 public:
-    size_t operator()(const std::tuple<char, Node*, Node*>& x) const {
+    size_t operator()(const std::tuple<char, const Node*, const Node*>& x) const {
         return (size_t)std::get<1>(x) ^ (size_t)std::get<2>(x);
     }
 };
 
-static std::unordered_map<std::tuple<char, Node*, Node*>, std::shared_ptr<Node>, nodehash> cache;
+static std::unordered_map<std::tuple<char, const Node*, const Node*>,
+    std::unique_ptr<const Node>, nodehash> cache;
 
-Node* get_node(char x, Node* p1, Node* p0) {
+const Node* get_node(char x, const Node* p1, const Node* p0) {
     if (p1 == &TERM0) {
         return p0;
     } else {
-        std::tuple<char, Node*, Node*> key(x, p1, p0);
+        std::tuple<char, const Node*, const Node*> key(x, p1, p0);
 
         if (!cache.count(key)) {
-            cache[key] = std::shared_ptr<Node>(new Node(x, p1, p0));
+            cache[key] = std::unique_ptr<const Node>(new Node(x, p1, p0));
         }
 
         return cache[key].get();
     }
 }
 
-int sign(Node* x) {
-    if (x == &TERM0) {
-        return 0;
-    } else {
-        return 1;
-    }
+inline int sign(const Node* x) {
+    return (x == &TERM0)? 0 : 1;
 }
 
 template<typename Func>
-Node* meld(Func op, Node* p, Node* q) {
+const Node* meld(Func op, const Node* p, const Node* q) {
     if (p == &TERM0 || q == &TERM0 || p == q) {
         if (!op(sign(p), sign(q))) {
             return &TERM0;
@@ -82,32 +76,32 @@ Node* meld(Func op, Node* p, Node* q) {
     }
 }
 
-Node* union_(Node* p, Node* q) {
+const Node* union_(const Node* p, const Node* q) {
     return meld([](int x, int y) -> int { return x+y; }, p, q);
 }
 
-Node* intersection(Node* p, Node* q) {
+const Node* intersection(const Node* p, const Node* q) {
     return meld([](int x, int y) -> int { return x*y; }, p, q);
 }
 
-Node* difference(Node* p, Node* q) {
+const Node* difference(const Node* p, const Node* q) {
     return meld([](int x, int y) -> int { return x&(!y); }, p, q);
 }
 
-Node* symmetric_difference(Node* p, Node* q) {
+const Node* symmetric_difference(const Node* p, const Node* q) {
     return meld([](int x, int y) -> int { return x^y; }, p, q);
 }
 
-Node* one_terminal() {
+const Node* one_terminal() {
     return &TERM1;
 }
 
-Node* zero_terminal() {
+const Node* zero_terminal() {
     return &TERM0;
 }
 
-Node* onset(Node* root, char x) {
-    Node* node = root;
+const Node* onset(const Node* root, char x) {
+    const Node* node = root;
     while (node != &TERM1 && node != &TERM0) {
         if (node->label == x) {
             return node->branch1;
@@ -118,24 +112,24 @@ Node* onset(Node* root, char x) {
     return node;
 }
 
-Node* push(Node* root, char x) {
+const Node* push(const Node* root, char x) {
     return get_node(x, root, &TERM0);
 }
 
-char top(Node* root) {
+char top(const Node* root) {
     return root->label;
 }
 
-int count(Node* root) {
+int count(const Node* root) {
     if (root == &TERM0) {
         return 0;
     } else if (root == &TERM1) {
         return 1;
     }
 
-    Node* node = root;
-    std::unordered_map<Node*, int> counter { { &TERM0, 0 }, { &TERM1, 1 } };
-    std::vector<Node*> stack { root };
+    const Node* node = root;
+    std::unordered_map<const Node*, int> counter { { &TERM0, 0 }, { &TERM1, 1 } };
+    std::vector<const Node*> stack { root };
     while (!stack.empty()) {
         node = stack.back();
 
@@ -152,14 +146,14 @@ int count(Node* root) {
     return counter[root];
 }
 
-int count_node(Node* root) {
+int count_node(const Node* root) {
     if (root == &TERM0 || root == &TERM1) {
         return 0;
     }
 
-    Node* node = root;
-    std::unordered_set<Node*> set { &TERM0, &TERM1 };
-    std::vector<Node*> stack { root };
+    const Node* node = root;
+    std::unordered_set<const Node*> set { &TERM0, &TERM1 };
+    std::vector<const Node*> stack { root };
     while (!stack.empty()) {
         node = stack.back();
 
@@ -176,8 +170,8 @@ int count_node(Node* root) {
     return set.size() - 2;
 }
 
-Node* make_string(const py::str& sequence) {
-    Node* root = &TERM1;
+const Node* make_string(const py::str& sequence) {
+    const Node* root = &TERM1;
     for (int i=py::len(sequence)-1; i >= 0; --i) {
         root = get_node(py::extract<char>(sequence[i]), root, &TERM0);
     }
@@ -185,8 +179,8 @@ Node* make_string(const py::str& sequence) {
     return root;
 }
 
-Node* from_sequences(const py::list& sequences) {
-    Node* root = &TERM0;
+const Node* from_sequences(const py::list& sequences) {
+    const Node* root = &TERM0;
     for (int i=0; i < py::len(sequences); ++i) {
         root = union_(root, make_string(py::extract<py::str>(sequences[i])));
     }
@@ -194,10 +188,10 @@ Node* from_sequences(const py::list& sequences) {
     return root;
 }
 
-void trace(Node* node, py::list& sequences, std::vector<char>& queue) {
-    if (node->label == '1') {
+void trace(const Node* node, py::list& sequences, std::vector<char>& queue) {
+    if (node == &TERM1) {
         sequences.append(py::str(std::string(queue.begin(), queue.end()).c_str()));
-    } else if (node->label != '0') {
+    } else if (node != &TERM0) {
         trace(node->branch0, sequences, queue);
 
         queue.push_back(node->label);
@@ -206,7 +200,7 @@ void trace(Node* node, py::list& sequences, std::vector<char>& queue) {
     }
 }
 
-py::list values(Node* root) {
+py::list values(const Node* root) {
     py::list sequences;
     std::vector<char> queue;
 
@@ -215,10 +209,10 @@ py::list values(Node* root) {
     return sequences;
 }
 
-bool has_sequence(Node* root, const py::str& sequence) {
+bool has_sequence(const Node* root, const py::str& sequence) {
     bool match = false;
 
-    Node* node = root;
+    const Node* node = root;
     for (int i=0; i < py::len(sequence); ++i) {
         match = false;
         while (node != &TERM1 && node != &TERM0) {
@@ -241,9 +235,9 @@ bool has_sequence(Node* root, const py::str& sequence) {
     return true;
 }
 
-Node* suffixdd(const py::str& sequence) {
-    Node* r = &TERM1;
-    Node* s = &TERM1;
+const Node* suffixdd(const py::str& sequence) {
+    const Node* r = &TERM1;
+    const Node* s = &TERM1;
     for (int i=py::len(sequence)-1; i >= 0; --i) {
         r = get_node(py::extract<char>(sequence[i]), r, &TERM1);
         s = union_(s, r);
@@ -252,7 +246,7 @@ Node* suffixdd(const py::str& sequence) {
     return s;
 }
 
-Node* next_node(Node* node, const std::string& queue) {
+const Node* next_node(const Node* node, const std::string& queue) {
     while (node != &TERM0 && node != &TERM1) {
         if (node->label == queue[0]) {
             if (queue.size() == 1) {
@@ -267,20 +261,20 @@ Node* next_node(Node* node, const std::string& queue) {
     return NULL;
 }
 
-void make(Node* root, Node* node,
-          std::map<std::string, std::tuple<Node*, int> >& failure,
+void make(const Node* root, const Node* node,
+          std::map<std::string, std::tuple<const Node*, int> >& failure,
           std::string& queue) {
     bool found = false;
     for (size_t i=1; i < queue.size(); ++i) {
-        Node* next = next_node(root, queue.substr(i));
+        const Node* next = next_node(root, queue.substr(i));
         if (next != NULL) {
-            failure[queue] = std::tuple<Node*, int>(next, i);
+            failure[queue] = std::tuple<const Node*, int>(next, i);
             found = true;
             break;
         }
     }
     if (!found) {
-        failure[queue] = std::tuple<Node*, int>(root, queue.size());
+        failure[queue] = std::tuple<const Node*, int>(root, queue.size());
     }
 
     if (node != &TERM1) {
@@ -295,8 +289,8 @@ void make(Node* root, Node* node,
     }
 }
 
-std::map<std::string, std::tuple<Node*, int> > make_failure(Node* root) {
-    std::map<std::string, std::tuple<Node*, int> > failure;
+std::map<std::string, std::tuple<const Node*, int> > make_failure(const Node* root) {
+    std::map<std::string, std::tuple<const Node*, int> > failure;
     std::string queue;
 
     make(root, root, failure, queue);
@@ -304,18 +298,18 @@ std::map<std::string, std::tuple<Node*, int> > make_failure(Node* root) {
     return failure;
 }
 
-py::list search(Node* root,
-                std::map<std::string, std::tuple<Node*, int> >& failure,
+py::list search(const Node* root,
+                std::map<std::string, std::tuple<const Node*, int> >& failure,
                 const std::string& sequence) {
     py::list result;
 
-    Node* node = root;
+    const Node* node = root;
     std::string string = sequence + " ";
     std::string queue;
     size_t i = 0;
     while (i < string.size()) {
         // Check 0-branch to decide whether current node is terminal.
-        Node* node_b0 = node->branch0;
+        const Node* node_b0 = node->branch0;
         while (node_b0 != &TERM0) {
             if (node_b0 == &TERM1) {
                 result.append(make_tuple(i-queue.size(), py::str(queue.c_str())));
@@ -332,7 +326,7 @@ py::list search(Node* root,
 
             // Use failure function when label is not matched.
             if (node == &TERM0 || node == &TERM1) {
-                std::tuple<Node*, int> tuple = failure[queue];
+                std::tuple<const Node*, int> tuple = failure[queue];
                 node = std::get<0>(tuple);
                 int n_pop = std::get<1>(tuple);
 
@@ -345,7 +339,7 @@ py::list search(Node* root,
         while (node == &TERM1) {
             result.append(make_tuple(i-queue.size(), py::str(queue.c_str())));
 
-            std::tuple<Node*, int> tuple = failure[queue];
+            std::tuple<const Node*, int> tuple = failure[queue];
             node = std::get<0>(tuple);
             int n_pop = std::get<1>(tuple);
             queue = queue.substr(n_pop);
@@ -357,9 +351,9 @@ py::list search(Node* root,
 }
 
 BOOST_PYTHON_MODULE(_seqbdd) {
-    py::class_<Node>("Node", py::init<char, Node*, Node*>());
-    py::class_<std::map<std::string, std::tuple<Node*, int> > >("failure")
-        .def(py::map_indexing_suite<std::map<std::string, std::tuple<Node*, int> > >());
+    py::class_<Node>("Node", py::init<char, const Node*, const Node*>());
+    py::class_<std::map<std::string, std::tuple<const Node*, int> > >("failure")
+        .def(py::map_indexing_suite<std::map<std::string, std::tuple<const Node*, int> > >());
 
     py::def("union_", union_,
             py::return_value_policy<py::reference_existing_object>());

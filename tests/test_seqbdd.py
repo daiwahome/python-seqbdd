@@ -34,7 +34,7 @@ class SeqBDDTestCase(TestCase):
 
 
     def test_contains(self):
-        """Check in statements can be used"""
+        """Work `in` statements"""
         from seqbdd import SeqBDD
 
         sdd = SeqBDD(['aa', 'ab'])
@@ -117,7 +117,7 @@ class SeqBDDTestCase(TestCase):
 
 
     def test_search(self):
-        """Test search by a SeqBDD"""
+        """Search a sequence by a SeqBDD"""
         from seqbdd import SeqBDD
 
         sdd = SeqBDD(['abc', 'def'])
