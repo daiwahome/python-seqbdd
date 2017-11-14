@@ -12,6 +12,7 @@
 
 namespace py = boost::python;
 
+// types
 typedef struct _Node {
     char label;
     const struct _Node* branch1;
@@ -21,24 +22,26 @@ typedef struct _Node {
         : label(l), branch1(b1), branch0(b0) {}
 } Node;
 
-static const Node TERM0('0', NULL, NULL);
-static const Node TERM1('1', NULL, NULL);
-
+typedef std::tuple<char, const Node*, const Node*> NodeKey;
+typedef std::map<std::string, std::tuple<const Node*, int> > Failure;
 class nodehash {
 public:
-    size_t operator()(const std::tuple<char, const Node*, const Node*>& x) const {
+    size_t operator()(const NodeKey& x) const {
         return (size_t)std::get<1>(x) ^ (size_t)std::get<2>(x);
     }
 };
 
-static std::unordered_map<std::tuple<char, const Node*, const Node*>,
-    std::unique_ptr<const Node>, nodehash> cache;
+// static variables
+static const Node TERM0('0', NULL, NULL);
+static const Node TERM1('1', NULL, NULL);
+static std::unordered_map<NodeKey, std::unique_ptr<const Node>, nodehash> cache;
 
+// functions
 const Node* get_node(char x, const Node* p1, const Node* p0) {
     if (p1 == &TERM0) {
         return p0;
     } else {
-        std::tuple<char, const Node*, const Node*> key(x, p1, p0);
+        NodeKey key(x, p1, p0);
 
         if (!cache.count(key)) {
             cache[key] = std::unique_ptr<const Node>(new Node(x, p1, p0));
@@ -269,9 +272,7 @@ const Node* next_node(const Node* node, const std::string& queue) {
     return NULL;
 }
 
-void make(const Node* root, const Node* node,
-          std::map<std::string, std::tuple<const Node*, int> >& failure,
-          std::string& queue) {
+void make(const Node* root, const Node* node, Failure& failure, std::string& queue) {
     bool found = false;
     for (size_t i=1; i < queue.size(); ++i) {
         const Node* next = next_node(root, queue.substr(i));
@@ -297,8 +298,8 @@ void make(const Node* root, const Node* node,
     }
 }
 
-std::map<std::string, std::tuple<const Node*, int> > make_failure(const Node* root) {
-    std::map<std::string, std::tuple<const Node*, int> > failure;
+Failure make_failure(const Node* root) {
+    Failure failure;
     std::string queue;
 
     make(root, root, failure, queue);
@@ -306,9 +307,7 @@ std::map<std::string, std::tuple<const Node*, int> > make_failure(const Node* ro
     return failure;
 }
 
-py::list search(const Node* root,
-                std::map<std::string, std::tuple<const Node*, int> >& failure,
-                const std::string& sequence) {
+py::list search(const Node* root, Failure& failure, const std::string& sequence) {
     py::list result;
 
     const Node* node = root;
@@ -360,8 +359,8 @@ py::list search(const Node* root,
 
 BOOST_PYTHON_MODULE(_seqbdd) {
     py::class_<Node>("Node", py::init<char, const Node*, const Node*>());
-    py::class_<std::map<std::string, std::tuple<const Node*, int> > >("failure")
-        .def(py::map_indexing_suite<std::map<std::string, std::tuple<const Node*, int> > >());
+    py::class_<Failure>("failure")
+        .def(py::map_indexing_suite<Failure>());
 
     py::def("union_", union_,
             py::return_value_policy<py::reference_existing_object>());
