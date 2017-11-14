@@ -170,6 +170,14 @@ int count_node(const Node* root) {
     return set.size() - 2;
 }
 
+bool equal_nodes(const Node* root, const Node* other) {
+    return root == other;
+}
+
+bool not_equal_nodes(const Node* root, const Node* other) {
+    return root != other;
+}
+
 const Node* make_string(const py::str& sequence) {
     const Node* root = &TERM1;
     for (int i=py::len(sequence)-1; i >= 0; --i) {
@@ -388,5 +396,9 @@ BOOST_PYTHON_MODULE(_seqbdd) {
     py::def("values", values,
             py::return_value_policy<py::return_by_value>());
     py::def("has_sequence", has_sequence,
+            py::return_value_policy<py::return_by_value>());
+    py::def("equal_nodes", equal_nodes,
+            py::return_value_policy<py::return_by_value>());
+    py::def("not_equal_nodes", not_equal_nodes,
             py::return_value_policy<py::return_by_value>());
 }

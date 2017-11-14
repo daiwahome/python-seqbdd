@@ -42,6 +42,28 @@ class SeqBDDTestCase(TestCase):
         self.assertFalse('ac' in sdd)
 
 
+    def test_eq(self):
+        """Work `==` operation"""
+        from seqbdd import SeqBDD
+
+        sdd1 = SeqBDD(['aa', 'ab'])
+        sdd2 = SeqBDD(['aa', 'ab'])
+        sdd3 = SeqBDD(['aa', 'ac'])
+        self.assertTrue(sdd1 == sdd2)
+        self.assertFalse(sdd1 == sdd3)
+
+
+    def test_ne(self):
+        """Work `!=` operation"""
+        from seqbdd import SeqBDD
+
+        sdd1 = SeqBDD(['aa', 'ab'])
+        sdd2 = SeqBDD(['aa', 'ab'])
+        sdd3 = SeqBDD(['aa', 'ac'])
+        self.assertFalse(sdd1 != sdd2)
+        self.assertTrue(sdd1 != sdd3)
+
+
     def test_or(self):
         """Get a union set"""
         union = self.sdd1 | self.sdd2

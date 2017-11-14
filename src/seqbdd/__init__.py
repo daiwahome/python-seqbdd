@@ -58,6 +58,26 @@ class SeqBDD:
         return _seqbdd.has_sequence(self.root, sequence)
 
 
+    def __eq__(self, other: 'SeqBDD') -> bool:
+        """Whether a SeqBDD is identical to an other.
+        :param other:
+            An other SeqBDD.
+        :return:
+            Wether two SeqBDDs are equal.
+        """
+        return _seqbdd.equal_nodes(self.root, other.root)
+
+
+    def __ne__(self, other: 'SeqBDD') -> bool:
+        """Whether a SeqBDD is not identical to an other.
+        :param other:
+            An other SeqBDD.
+        :return:
+            Wether two SeqBDDs are not equal.
+        """
+        return _seqbdd.not_equal_nodes(self.root, other.root)
+
+
     def __or__(self, right: 'SeqBDD') -> 'SeqBDD':
         """Get a union set.
         :param right:
