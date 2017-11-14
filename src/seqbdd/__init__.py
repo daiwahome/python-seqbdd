@@ -2,8 +2,28 @@
 implemented in C++."""
 
 from typing import Callable, List, Tuple
+import collections as _collections
 
 import _seqbdd
+
+AlignmentResult = _collections.namedtuple('AlignmentResult',
+                                          ('sequence1',
+                                           'sequence2',
+                                           'aligned_sequence1',
+                                           'aligned_sequence2',
+                                           'span_sequence1',
+                                           'span_sequence2',
+                                           'score'))
+AlignmentResult.__doc__ = 'The result of a pairwise sequence alignment.'
+AlignmentResult.sequence1.__doc__ = 'A sequence.'
+AlignmentResult.sequence2.__doc__ = 'A sequence.'
+AlignmentResult.aligned_sequence1.__doc__ = 'A aligned sequence.'
+AlignmentResult.aligned_sequence2.__doc__ = 'A aligned sequence.'
+AlignmentResult.span_sequence1.__doc__ = \
+    'The index pair of ``sequence1`` which is corresponding to a aligned sequence.'
+AlignmentResult.span_sequence2.__doc__ = \
+    'The index pair of ``sequence2`` which is corresponding to a aligned sequence.'
+AlignmentResult.score.__doc__ = 'An alignment score.'
 
 class SeqBDD:
     """The sequence binary decision diagram (SeqBDD) class."""
@@ -12,8 +32,10 @@ class SeqBDD:
 
 
     def _initialize(self, f: Callable, *args) -> 'SeqBDD':
-        self.root = f(*args)
-        self.failure = None
+        self._root: _seqbdd.Node = f(*args)
+        self._failure: _seqbdd.Failure = None
+        self._nodes: _seqbdd.NodeVector = None
+        self._best_score: _seqbdd.BestScore = None
 
 
     @classmethod
@@ -45,7 +67,7 @@ class SeqBDD:
         :return:
             Sequences are obteined from a SeqBDD.
         """
-        return _seqbdd.values(self.root)
+        return _seqbdd.values(self._root)
 
 
     def __contains__(self, sequence: str) -> bool:
@@ -55,7 +77,7 @@ class SeqBDD:
         :return:
             Whether a sequence is contained in a SeqBDD.
         """
-        return _seqbdd.has_sequence(self.root, sequence)
+        return _seqbdd.has_sequence(self._root, sequence)
 
 
     def __eq__(self, other: 'SeqBDD') -> bool:
@@ -65,7 +87,7 @@ class SeqBDD:
         :return:
             Wether two SeqBDDs are equal.
         """
-        return _seqbdd.equal_nodes(self.root, other.root)
+        return _seqbdd.equal_nodes(self._root, other._root)
 
 
     def __ne__(self, other: 'SeqBDD') -> bool:
@@ -75,7 +97,7 @@ class SeqBDD:
         :return:
             Wether two SeqBDDs are not equal.
         """
-        return _seqbdd.not_equal_nodes(self.root, other.root)
+        return _seqbdd.not_equal_nodes(self._root, other._root)
 
 
     def __or__(self, right: 'SeqBDD') -> 'SeqBDD':
@@ -86,7 +108,7 @@ class SeqBDD:
             A SeqBDD represents a union set.
         """
         sdd = self.__new__(type(self))
-        sdd._initialize(_seqbdd.union_, self.root, right.root)
+        sdd._initialize(_seqbdd.union_, self._root, right._root)
 
         return sdd
 
@@ -99,7 +121,7 @@ class SeqBDD:
             A SeqBDD represents an intersection set.
         """
         sdd = self.__new__(type(self))
-        sdd._initialize(_seqbdd.intersection, self.root, right.root)
+        sdd._initialize(_seqbdd.intersection, self._root, right._root)
 
         return sdd
 
@@ -112,7 +134,7 @@ class SeqBDD:
             A SeqBDD represents a difference set.
         """
         sdd = self.__new__(type(self))
-        sdd._initialize(_seqbdd.difference, self.root, right.root)
+        sdd._initialize(_seqbdd.difference, self._root, right._root)
 
         return sdd
 
@@ -125,7 +147,7 @@ class SeqBDD:
             A SeqBDD represents a symmetric difference set.
         """
         sdd = self.__new__(type(self))
-        sdd._initialize(_seqbdd.symmetric_difference, self.root, right.root)
+        sdd._initialize(_seqbdd.symmetric_difference, self._root, right._root)
 
         return sdd
 
@@ -138,7 +160,7 @@ class SeqBDD:
             A SeqBDD.
         """
         sdd = self.__new__(type(self))
-        sdd._initialize(_seqbdd.onset, self.root, label)
+        sdd._initialize(_seqbdd.onset, self._root, label)
 
         return sdd
 
@@ -151,7 +173,7 @@ class SeqBDD:
             A SeqBDD.
         """
         sdd = self.__new__(type(self))
-        sdd._initialize(_seqbdd.push, self.root, label)
+        sdd._initialize(_seqbdd.push, self._root, label)
 
         return sdd
 
@@ -161,7 +183,7 @@ class SeqBDD:
         :return:
             A character.
         """
-        return _seqbdd.top(self.root)
+        return _seqbdd.top(self._root)
 
 
     def count(self) -> int:
@@ -169,7 +191,7 @@ class SeqBDD:
         :return:
             The number of sequences.
         """
-        return _seqbdd.count(self.root)
+        return _seqbdd.count(self._root)
 
 
     def count_node(self) -> int:
@@ -177,7 +199,7 @@ class SeqBDD:
         :return:
             The number of nodes.
         """
-        return _seqbdd.count_node(self.root)
+        return _seqbdd.count_node(self._root)
 
 
     @classmethod
@@ -201,7 +223,26 @@ class SeqBDD:
         :return:
             A SeqBDD.
         """
-        if self.failure is None:
-            self.failure = _seqbdd.make_failure(self.root)
+        if self._failure is None:
+            self._failure = _seqbdd.make_failure(self._root)
 
-        return _seqbdd.search(self.root, self.failure, sequence)
+        return _seqbdd.search(self._root, self._failure, sequence)
+
+
+    def glocal_alignment(self, sequence: str, gapopen: int, gapext: int,
+                         p: int) -> List['AlignmentResult']:
+        """Align a sequence with a SeqBDD glocally.
+        :param sequence:
+            A sequence to align locally.
+        :return:
+            A SeqBDD to align globally.
+        """
+        if self._nodes is None:
+            self._nodes = _seqbdd.get_nodes(self._root)
+        if self._best_score is None:
+            self._best_score = _seqbdd.get_best_score(self._root, gapopen, gapext)
+
+        results = _seqbdd.glocal_alignment(sequence, self._root, self._nodes,
+                                           self._best_score, gapopen, gapext, p)
+
+        return [AlignmentResult(*result) for result in results]

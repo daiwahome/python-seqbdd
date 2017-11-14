@@ -1,7 +1,8 @@
 from distutils.core import setup, Extension
 
 boost_module = Extension('_seqbdd',
-                         sources=['src/seqbdd/_seqbdd.cpp'],
+                         sources=['src/seqbdd/_seqbdd.cpp',
+                                  'src/seqbdd/matrix/matrix.cpp'],
                          include_dirs=['/usr/local/include'],
                          library_dirs=['/usr/local/lib'],
                          libraries=['boost_python3'],

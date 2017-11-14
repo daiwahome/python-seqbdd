@@ -158,3 +158,42 @@ class SeqBDDTestCase(TestCase):
         self.assertEqual(sdd.search('abccab'),
                          [(0, 'a'), (0, 'ab'), (1, 'bc'), (2, 'c'),
                           (3, 'c'), (4, 'a'), (4, 'ab')])
+
+
+    def test_glocal_alignment(self):
+        """Align a sequence and a SeqBDD glocally"""
+        from seqbdd import SeqBDD
+
+        # http://www.uniprot.org/uniprot/Q8NHC7
+        sequence = (
+            'MPNSTTVMEFLLMRFSDVWTLQILHSASFFMLYLVTLMGNILIVTVTTCDSSLHMPMYFF'
+            'LRNLSILDACYISVTVPTSCVNSLLDSTTISKAGCVAQVFLVVFFVYVELLFLTIMAHDR'
+            'YVAVCQPLHYPVIVNSRICIQMTLASLLSGLVYAGMHTGSTFQLPFCRSNVIHQFFCDIP'
+            'SLLKLSCSDTFSNEVMIVVSALGVGGGCFIFIIRSYIHIFSTVLGFPRGADRTKAFSTCI'
+            'PHILVVSVFLSSCSSVYLRPPAIPAATQDLILSGFYSIMPPLFNPIIYSLRNKQIKVAIK'
+            'KIMKRIFYSENV')
+        query_sequences = ['NSTTVMEFLLMRF', 'IIYSLRNKQIKVA']
+        query = SeqBDD(query_sequences)
+
+        gapopen = 11
+        gapext = 1
+        p = 0.9
+
+        results = query.glocal_alignment(sequence, gapopen, gapext, p)
+        self.assertEqual(2, len(results))
+
+        self.assertEqual('NSTTVMEFLLMRF', results[0].sequence1)
+        self.assertEqual(sequence, results[0].sequence2)
+        self.assertEqual('NSTTVMEFLLMRF', results[0].aligned_sequence1)
+        self.assertEqual('NSTTVMEFLLMRF', results[0].aligned_sequence2)
+        self.assertEqual((0, 13), results[0].span_sequence1)
+        self.assertEqual((2, 15), results[0].span_sequence2)
+        self.assertEqual(64, results[0].score)
+
+        self.assertEqual('IIYSLRNKQIKVA', results[1].sequence1)
+        self.assertEqual(sequence, results[1].sequence2)
+        self.assertEqual('IIYSLRNKQIKVA', results[1].aligned_sequence1)
+        self.assertEqual('IIYSLRNKQIKVA', results[1].aligned_sequence2)
+        self.assertEqual((0, 13), results[1].span_sequence1)
+        self.assertEqual((285, 298), results[1].span_sequence2)
+        self.assertEqual(61, results[1].score)
