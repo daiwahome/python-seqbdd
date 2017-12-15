@@ -1,7 +1,4 @@
-#define BOOST_PYTHON_STATIC_LIB
-
 #include <algorithm>
-#include <cstddef>
 #include <map>
 #include <memory>
 #include <utility>
@@ -40,8 +37,8 @@ namespace seqbdd {
     };
 
     // static variables
-    static const Node TERM0('0', NULL, NULL);
-    static const Node TERM1('1', NULL, NULL);
+    static const Node TERM0('0', nullptr, nullptr);
+    static const Node TERM1('1', nullptr, nullptr);
     static std::unordered_map<NodeKey, std::unique_ptr<const Node>, nodehash> cache;
 
     // functions
@@ -303,14 +300,14 @@ namespace seqbdd { namespace algorithm {
             node = node->branch0;
         }
 
-        return NULL;
+        return nullptr;
     }
 
     void make(const Node* root, const Node* node, Failure& failure, std::string& queue) {
         bool found = false;
         for (size_t i=1; i < queue.size(); ++i) {
             const Node* next = next_node(root, queue.substr(i));
-            if (next != NULL) {
+            if (next != nullptr) {
                 failure[queue] = std::tuple<const Node*, int>(next, i);
                 found = true;
                 break;
