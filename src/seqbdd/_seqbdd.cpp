@@ -372,7 +372,9 @@ namespace seqbdd { namespace algorithm {
                     int n_pop = std::get<1>(tuple);
 
                     queue = queue.substr(n_pop);
-                    i -= n_pop - 1;
+                    if (queue.empty()) {
+                        i -= n_pop - 1;
+                    }
                 }
             }
 
@@ -384,7 +386,9 @@ namespace seqbdd { namespace algorithm {
                 node = std::get<0>(tuple);
                 int n_pop = std::get<1>(tuple);
                 queue = queue.substr(n_pop);
-                i -= n_pop - 1;
+                if (queue.empty()) {
+                    i -= n_pop - 1;
+                }
             }
         }
 
