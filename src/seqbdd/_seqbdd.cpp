@@ -289,13 +289,13 @@ namespace seqbdd { namespace algorithm {
     }
 
     const Node* next_node(const Node* node, const std::string& queue) {
+        if (queue.empty()) {
+            return node;
+        }
+
         while (node != &TERM0 && node != &TERM1) {
             if (node->label == queue[0]) {
-                if (queue.size() == 1) {
-                    return node->branch1;
-                } else {
-                    return next_node(node->branch1, queue.substr(1));
-                }
+                return next_node(node->branch1, queue.substr(1));
             }
             node = node->branch0;
         }
@@ -303,28 +303,28 @@ namespace seqbdd { namespace algorithm {
         return nullptr;
     }
 
-    void make(const Node* root, const Node* node, Failure& failure, std::string& queue) {
+    void make(const Node* root, const Node* node, Failure& failure, std::string& stack) {
         bool found = false;
-        for (size_t i=1; i < queue.size(); ++i) {
-            const Node* next = next_node(root, queue.substr(i));
+        for (size_t i=1; i < stack.size(); ++i) {
+            const Node* next = next_node(root, stack.substr(i));
             if (next != nullptr) {
-                failure[queue] = std::tuple<const Node*, int>(next, i);
+                failure[stack] = std::tuple<const Node*, int>(next, i);
                 found = true;
                 break;
             }
         }
         if (!found) {
-            failure[queue] = std::tuple<const Node*, int>(root, queue.size());
+            failure[stack] = std::tuple<const Node*, int>(root, stack.size());
         }
 
         if (node != &TERM1) {
             if (node->branch0 != &TERM0) {
-                make(root, node->branch0, failure, queue);
+                make(root, node->branch0, failure, stack);
             }
             if (node->branch1 != &TERM0) {
-                queue.push_back(node->label);
-                make(root, node->branch1, failure, queue);
-                queue.pop_back();
+                stack.push_back(node->label);
+                make(root, node->branch1, failure, stack);
+                stack.pop_back();
             }
         }
     }
@@ -338,23 +338,39 @@ namespace seqbdd { namespace algorithm {
         return failure;
     }
 
+    inline void check_terminal(size_t i, const Node* node,
+                               const std::string& queue, py::list& results) {
+        const Node* node_b0 = node->branch0;
+        while (node_b0 != &TERM0) {
+            if (node_b0 == &TERM1) {
+                results.append(make_tuple(i-queue.size(), py::str(queue.c_str())));
+                break;
+            }
+            node_b0 = node_b0->branch0;
+        }
+    }
+
+    inline const Node* fail_state(size_t& i, Failure& failure, std::string& queue) {
+        std::tuple<const Node*, int> tuple = failure[queue];
+        int n_pop = std::get<1>(tuple);
+
+        queue = queue.substr(n_pop);
+        if (queue.empty()) {
+            i -= n_pop - 1;
+        }
+
+        return std::get<0>(tuple);
+    }
+
     py::list search(const Node* root, Failure& failure, const std::string& sequence) {
-        py::list result;
+        py::list results;
 
         const Node* node = root;
         std::string string = sequence + " ";
         std::string queue;
         size_t i = 0;
         while (i < string.size()) {
-            // Check 0-branch to decide whether current node is terminal.
-            const Node* node_b0 = node->branch0;
-            while (node_b0 != &TERM0) {
-                if (node_b0 == &TERM1) {
-                    result.append(make_tuple(i-queue.size(), py::str(queue.c_str())));
-                    break;
-                }
-                node_b0 = node_b0->branch0;
-            }
+            check_terminal(i, node, queue, results);
 
             if (node->label == string[i]) {
                 node = node->branch1;
@@ -364,32 +380,18 @@ namespace seqbdd { namespace algorithm {
 
                 // Use failure function when label is not matched.
                 if (node == &TERM0 || node == &TERM1) {
-                    std::tuple<const Node*, int> tuple = failure[queue];
-                    node = std::get<0>(tuple);
-                    int n_pop = std::get<1>(tuple);
-
-                    queue = queue.substr(n_pop);
-                    if (queue.empty()) {
-                        i -= n_pop - 1;
-                    }
+                    node = fail_state(i, failure, queue);
                 }
             }
 
             // Check terminal node.
             while (node == &TERM1) {
-                result.append(make_tuple(i-queue.size(), py::str(queue.c_str())));
-
-                std::tuple<const Node*, int> tuple = failure[queue];
-                node = std::get<0>(tuple);
-                int n_pop = std::get<1>(tuple);
-                queue = queue.substr(n_pop);
-                if (queue.empty()) {
-                    i -= n_pop - 1;
-                }
+                results.append(make_tuple(i-queue.size(), py::str(queue.c_str())));
+                node = fail_state(i, failure, queue);
             }
         }
 
-        return result;
+        return results;
     }
 }}; // namespace alignment, seqbdd
 
